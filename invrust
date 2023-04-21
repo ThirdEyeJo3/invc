@@ -1,0 +1,106 @@
+struct Invoice {
+    id: u64,
+    amount: u64,
+    description: String,
+    date: String,
+    issuer: String,
+    recipient: String,
+}
+
+
+
+
+
+
+#[ink::contract]
+mod invoice {
+    use ink_prelude::vec::Vec;
+    use ink_storage::collections::HashMap;
+
+    #[ink(storage)]
+    pub struct Invoice {
+        invoices: HashMap<u64, InvoiceData>,
+        owner: AccountId,
+        nft: ink_non_fungible_token::Data<InvoiceNFT>,
+    }
+
+    #[ink(event)]
+    pub struct InvoiceCreated {
+        #[ink(topic)]
+        id: u64,
+    }
+
+    #[derive(Default, Clone, PartialEq, Eq, scale::Encode, scale::Decode)]
+    #[cfg_attr(feature = "std", derive(Debug))]
+    pub struct InvoiceNFT {}
+
+    #[ink(storage)]
+    pub struct InvoiceData {
+        pub amount: u64,
+        pub description: String,
+        pub date: String,
+        pub issuer: AccountId,
+        pub recipient: AccountId,
+    }
+
+    impl Invoice {
+        #[ink(constructor)]
+        pub fn new() -> Self {
+            let mut nft = ink_non_fungible_token::Data::new();
+            let owner = Self::env().caller();
+            nft.initialize(owner);
+            Self {
+                invoices: HashMap::new(),
+                owner,
+                nft,
+            }
+        }
+
+        #[ink(message)]
+        pub fn create_invoice(&mut self, amount: u64, description: String, date: String, recipient: AccountId) -> u64 {
+            let id = self.env().block_timestamp() as u64;
+            let issuer = self.env().caller();
+
+            let invoice = InvoiceData {
+                amount,
+                description,
+                date,
+                issuer,
+                recipient,
+            };
+            self.invoices.insert(id, invoice);
+
+            self.nft.mint(self.env().caller(), id.into());
+
+            self.env().emit_event(InvoiceCreated { id });
+
+            id
+        }
+
+        #[ink(message)]
+        pub fn get_invoice(&self, id: u64) -> Option<InvoiceData> {
+            self.invoices.get(&id).cloned()
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn create_invoice() {
+            let mut contract = Invoice::new();
+            let amount = 100;
+            let description = "Test invoice".to_string();
+            let date = "2022-05-01".to_string();
+            let recipient = AccountId::new([0x1; 32]);
+            let id = contract.create_invoice(amount, description, date, recipient);
+
+            let invoice = contract.get_invoice(id).unwrap();
+            assert_eq!(invoice.amount, amount);
+            assert_eq!(invoice.description, description);
+            assert_eq!(invoice.date, date);
+            assert_eq!(invoice.recipient, recipient);
+        }
+    }
+}
