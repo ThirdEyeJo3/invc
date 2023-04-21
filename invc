@@ -1,0 +1,34 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+
+contract InvoiceNFT is ERC721 {
+    uint public nextTokenId = 1;
+
+    constructor() ERC721("InvoiceNFT", "INV") {}
+
+    function mint(string memory invoiceNumber, address recipient, uint256 amount) public {
+        // Concatenate the invoice details into a single string for the token URI
+        string memory invoiceDetails = string(abi.encodePacked("Invoice number: ", invoiceNumber, "\nRecipient: ", toString(recipient), "\nAmount: ", toString(amount)));
+
+        // Mint the NFT with the invoice details as metadata
+        _safeMint(msg.sender, nextTokenId);
+        _setTokenURI(nextTokenId, invoiceDetails);
+        nextTokenId++;
+    }
+
+    function toString(address x) private pure returns (string memory) {
+        bytes memory b = new bytes(20);
+        for (uint i = 0; i < 20; i++)
+            b[i] = byte(uint8(uint(x) / (2**(8*(19 - i)))));
+        return string(b);
+    }
+
+    function toString(uint256 x) private pure returns (string memory) {
+        bytes memory b = new bytes(32);
+        for (uint i = 0; i < 32; i++)
+            b[i] = byte(uint8(uint(x) / (2**(8*(31 - i)))));
+        return string(b);
+    }
+}
